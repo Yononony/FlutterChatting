@@ -6,24 +6,52 @@ class ChattingActivity extends StatefulWidget{
 	State createState() => ChattingActivityState();
 }
 
-class ChattingActivityState extends State<ChattingActivity> {
+class ChattingActivityState extends State<ChattingActivity> with WidgetsBindingObserver {
 	FocusNode _focusNode = new FocusNode();
 	var smileyPadGone = true;
+	bool needShowSmiley = false;
+	bool needHideSmiley = false;
+	bool keyboardShow = false;
+	double keyboard = -1;
+	static const double keyboard_height=300;
 
 	@override
 	void initState() {
 		super.initState();
+		WidgetsBinding.instance.addObserver(this);
 		_focusNode.addListener(_focusNodeListener);
 	}
 
 	@override
 	void dispose(){
+		WidgetsBinding.instance.removeObserver(this);
 		_focusNode.removeListener(_focusNodeListener);
 		super.dispose();
 	}
 
 	void _focusNodeListener() {
-		if (_focusNode.hasFocus || _focusNode.consumeKeyboardToken()){
+		/*if (_focusNode.hasFocus || _focusNode.consumeKeyboardToken()){
+			setState(() {
+				smileyPadGone = true;
+			});
+		}*/
+	}
+
+	@override
+	void didChangeMetrics() {
+		super.didChangeMetrics();
+		WidgetsBinding.instance.addPostFrameCallback((_) {
+			keyboardShow = MediaQuery.of(context).viewInsets.bottom > 0;
+		});
+
+		if (needShowSmiley && window.viewInsets.bottom <= 0.1) {
+			needShowSmiley = false;
+			setState(() {
+				smileyPadGone = false;
+			});
+		}
+		if(needHideSmiley && window.viewInsets.bottom > 0.1) {
+			needHideSmiley = false;
 			setState(() {
 				smileyPadGone = true;
 			});
@@ -32,8 +60,13 @@ class ChattingActivityState extends State<ChattingActivity> {
 
 	@override
 	Widget build(BuildContext context) {
+		double h = MediaQuery.of(context).viewInsets.bottom;
+		if(h > 0 && keyboard <= 0) {
+			setState(() {
+				keyboard = h;
+			});
+		}
 		return MaterialApp(
-			title: 'FlutterChatting',
 			theme: ThemeData(primaryColor: Colors.white),
 			home: Scaffold(
 				appBar: AppBar(),
@@ -73,7 +106,7 @@ class ChattingActivityState extends State<ChattingActivity> {
 						Offstage(
 							offstage: smileyPadGone,
 							child: Container(
-								height: 300,
+								height: keyboard == -1 ? keyboard_height : keyboard,
 								width: MediaQuery.of(context).size.width,
 								child: Text("表情面板"),
 							),
@@ -95,15 +128,19 @@ class ChattingActivityState extends State<ChattingActivity> {
 	}
 
 	_onSmileyTap() {
-		_focusNode.unfocus();
-		setState(() {
-			smileyPadGone = !smileyPadGone;
-		});
+		if(smileyPadGone && _focusNode.hasFocus && keyboardShow) {
+			needShowSmiley = true;
+			_focusNode.unfocus();
+		} else {
+			setState(() {
+				smileyPadGone = !smileyPadGone;
+			});
+		}
 	}
 
 	_onTextFieldTap() {
-		setState(() {
-			smileyPadGone = true;
-		});
+		if(!smileyPadGone) {
+			needHideSmiley = true;
+		}
 	}
 }
